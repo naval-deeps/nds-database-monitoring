@@ -1,0 +1,25 @@
+{
+    "Parameters":{
+        "DeployEnvironment":"dev",
+        "pTargetBucket":"lly-edp-logarchival-us-east-2-dev",
+        "pTargetPrefix":"database_monitoring"
+    },
+    "Tags":{
+        "DeplyEnvironment":"dev",
+        "AppName": "aads-edb-database-monitoring",
+        "CostCenter":"100ARAS",
+        "CostCenterApprover":"supancik_kent_s@lilly.com",
+        "SystemOwner":"bell_peter@lilly.com",
+        "SystemCustodian":"vemishetty_laxmiteja@lilly.com",
+        "PrimaryItContact":"vargese_nithen@lilly.com",
+        "Level1BusinessArea":"AADS",
+        "ProjectCenter":"100ARAS",
+        "DataClassification":"Yellow",
+        "Hippa":"No",
+        "ApplicationCi":"CIxxxxxxxx",
+        "SourceGitRepo":"aads-edb-database-monitoring",
+        "ApproverGroup":"EDB_GLB_APPROVERS"
+
+    },
+    "StackPolicy":{}
+}

@@ -1,0 +1,113 @@
+AWSTemplateFormatVersion": "2010-09-09"
+Transform: 'AWS::Serverless-2016-10-31'
+
+Description: >
+  aads-database-monitoring
+
+Parameters:
+  DeployEnvironment:
+    Type: String
+    Allowedvalues:
+      - dev
+      - qa
+      - prod
+  FunctionCurrentVersionAlias:
+    Type: String
+    Default: live
+  ptargetBucket:
+    Type: String
+  ptargetPrefix:
+    Type: String
+Mappings:
+  EnvironmentConfiguration:
+    dev:
+      FunctiondeploymentPrefernces:allAtOnce
+Resources:
+  DatabaseMonitoringRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Rolename: edb_core_dbmonitoring_role
+      PermissionBoundary: !Sub "arn:aws:iam::${AWS::AccountId}:policy/LZ-IAM-Boundary"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+                - "s3.amazonaws.com"
+            Action: "sts:AssumeRole"
+      Policies:
+        - PolicyName: edb_core_dbmonitoring_policy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Action:
+                  - 's3:GetObject'
+                  - 's3:PutObject'
+                  - 's3:ListObject'
+                  - 's3:GetObjectTagging'
+                  - 's3:PutObjectTagging'
+                Effect: Allow
+                Resource: !Sub "arn:aws:s3:::lly-edp-logarchival-us-east-2-${DeployEnvironment}/database_monitoring/*"
+              - Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                  - 'logs:DescribeLogGroups'
+                  - 'logs:DescribeLogStreams'
+                  - 'logs:GetLogEvents'
+                Effect: Allow
+                Resource: "*"                                
+              - Action:
+                  - 'logs:StartQuery'
+                  - 'logs:StopQuery'
+                  - 'logs:GetQueryResults'
+                Effect: Allow
+                Resource: '*'
+
+    DatabaseMonitoringFunction:
+        Type: AWS::Lambda::Function
+        Properties:
+            CodeUri: functions/edb_core_dbmonitoring_function
+            Handler: dbmonitoring_lambda.lambda_handler
+            Role: !GetAtt DatabaseMonitoringRole.Arn
+            Runtime: python3.7
+            Timeout: 900
+            MemorySize: 5120
+            Environment:
+              Variables:
+                TARGET_BUCKET: !Ref pTargetBucket
+                TARGET_PREFIX: !Ref pTargetPrefix
+            AutoPublishAlias: !Ref FunctionCurrentVersionalias
+            PermissionBoundary: !Sub "arn:aws:iam::${AWS::AccountId}:policy/LZ-IAM-Boundary"
+            FunctionName: edb_core_dbmonitoring_function
+            DeploymentPreference:
+                Type: !FindInMap [EnvironmentConfiguration, !Ref DeployEnvironment, FunctionDeploymentPreference]
+                Role: !GetAtt "IAMRoleForCodeDeploy.Arn"
+        
+    IAMRoleForCodeDeploy:
+        Type: AWS::IAM::Role
+        Properties:
+          ManagedPolicyArns:
+            - !Sub "arn:${AWS::Partition}:iam::policy/service-role/AWSCodeDeployRoleForLambda"
+          PermissionBoundary: !Sub "arn:aws:iam""${AWS::AccountId}:policy/LZ-IAM-Boundary"  
+          AssumeRolePolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+                Principal:
+                  Service:
+                    - codedeploy.amazonaws.com
+                Action:
+                - sts:AssumeRole
+            
+    MyEvent:
+      Type: AWS::Events::Rule
+      Properties:
+          ScheduleExpression: rate(24 hours)
+          State: ENABLED
+          Targets:
+              Id: DatabaseMonitoringFunction
+              Arn: !GetAtt DatabaseMonitoringFunction.Arn
+                
